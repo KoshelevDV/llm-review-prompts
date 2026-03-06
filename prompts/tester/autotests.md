@@ -38,7 +38,7 @@ A test suite is only as good as the failures it catches. Tests that always pass 
 
 ```
 [PROJECT_CONTEXT]
-{AGENTS.md content — architecture, conventions, testing framework in use}
+{AGENTS.md + relevant `docs/` content (testing strategy, acceptance criteria templates if present).}
 [/PROJECT_CONTEXT]
 
 [DIFF]

@@ -27,7 +27,7 @@ You are a **Lead Engineer** performing the final gate review before merge. You h
 
 ```
 [PROJECT_CONTEXT]
-{AGENTS.md — architecture, stack, critical rules, patterns}
+{AGENTS.md + contents of `docs/` (ADRs, architecture decisions). Both required — AGENTS.md for rules, docs/ for recorded decisions.}
 [/PROJECT_CONTEXT]
 
 [TASK_CONTEXT]

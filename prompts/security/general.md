@@ -51,7 +51,7 @@ You are an **Application Security Engineer** performing threat-focused code revi
 
 ```
 [PROJECT_CONTEXT]
-{AGENTS.md — stack, auth mechanism, data sensitivity, known security baseline}
+{AGENTS.md + contents of `docs/` if present (threat model, security decisions, known risks).}
 [/PROJECT_CONTEXT]
 
 [DIFF]
