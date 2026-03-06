@@ -43,7 +43,7 @@ Your output is actionable: specific missing test cases, not generic advice.
 
 ## Context Slots
 
-- `[PROJECT_CONTEXT]` — Project's AGENTS.md: tech stack, testing framework, test environment details.
+- `[PROJECT_CONTEXT]` — Project's AGENTS.md + `docs/` contents (testing strategy, acceptance criteria templates). Include tech stack, testing framework, test environment details.
 
 - `[TASK_CONTEXT]` — **Required.** Full task description including all acceptance criteria (ACs).
   Format expected:

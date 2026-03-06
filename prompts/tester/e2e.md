@@ -62,8 +62,7 @@ Review the diff to determine:
 
 ## Context Slots
 
-- `[PROJECT_CONTEXT]` — Project's AGENTS.md: E2E framework (Playwright/Cypress), test environment,
-  base URL, auth mechanism, existing test patterns.
+- `[PROJECT_CONTEXT]` — Project's AGENTS.md + `docs/` contents (E2E strategy, test environment docs). Include E2E framework (Playwright/Cypress), base URL, auth mechanism, existing test patterns.
 
 - `[TASK_CONTEXT]` — **Required.** Task description and acceptance criteria. E2E tests must cover
   user-facing flows for each AC.

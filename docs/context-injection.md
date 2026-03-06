@@ -218,3 +218,179 @@ Rules > Architecture > Stack versions > Structure > History
 ```
 
 Если приходится выбирать — оставляй правила, режь структуру и историю.
+
+---
+
+## Получение TASK_CONTEXT через GitLab API
+
+`TASK_CONTEXT` — описание задачи и acceptance criteria — обязателен для ролей Reviewer, Tester (manual, e2e).
+Без него ревьюер оценивает только код, но не знает что должно было быть сделано.
+
+### Источники
+
+**Вариант 1: MR description**
+Если разработчик пишет AC прямо в описании MR — читаем из MR объекта:
+
+```python
+def get_task_context_from_mr(project_id: int, mr_iid: int) -> str:
+    url = f"{GITLAB_URL}/api/v4/projects/{project_id}/merge_requests/{mr_iid}"
+    mr = httpx.get(url, headers={"PRIVATE-TOKEN": TOKEN}).json()
+
+    title = mr.get("title", "")
+    description = mr.get("description", "") or "No description provided."
+    return f"## MR Title\n{title}\n\n## Description\n{description}"
+```
+
+**Вариант 2: Linked issue (рекомендуется)**
+Если MR закрывает issue (`Closes #42` в описании) — читаем issue, там обычно полные AC:
+
+```python
+import re
+
+def get_task_context_from_issue(project_id: int, mr_iid: int) -> str:
+    # Получаем MR
+    mr_url = f"{GITLAB_URL}/api/v4/projects/{project_id}/merge_requests/{mr_iid}"
+    mr = httpx.get(mr_url, headers={"PRIVATE-TOKEN": TOKEN}).json()
+
+    # Ищем ссылку на issue в описании: "Closes #42", "Fixes #42", "Resolves #42"
+    description = mr.get("description", "") or ""
+    match = re.search(r"(?:Closes|Fixes|Resolves)\s+#(\d+)", description, re.IGNORECASE)
+
+    if not match:
+        # Fallback: используем описание MR как TASK_CONTEXT
+        return f"## Task\n{mr.get('title', '')}\n\n{description}"
+
+    issue_iid = int(match.group(1))
+    issue_url = f"{GITLAB_URL}/api/v4/projects/{project_id}/issues/{issue_iid}"
+    issue = httpx.get(issue_url, headers={"PRIVATE-TOKEN": TOKEN}).json()
+
+    return (
+        f"## Issue #{issue_iid}: {issue['title']}\n\n"
+        f"{issue.get('description', 'No description.')}"
+    )
+```
+
+### Рекомендация по формату issue
+
+Чтобы `TASK_CONTEXT` был полезным, issue должен содержать AC в читаемом формате.
+Рекомендуй команде шаблон:
+
+```markdown
+## Задача
+<Что нужно сделать и зачем>
+
+## Acceptance Criteria
+- AC1: <критерий — измеримый и проверяемый>
+- AC2: <критерий>
+
+## Out of Scope
+- <что явно не входит в эту задачу>
+```
+
+---
+
+## Подгрузка `docs/` для gitlab-reviewer v2
+
+### Проблема
+
+`docs/` — директория с архитектурными решениями — может содержать десятки файлов.
+Тащить всё в промпт нельзя: переполнение контекста, шум, дороговизна.
+Нужна стратегия умной выборки.
+
+### Стратегия: приоритизация + лимит токенов
+
+```python
+import httpx
+from pathlib import PurePosixPath
+
+PRIORITY_PATTERNS = [
+    "ARCHITECTURE", "ARCH", "ADR", "DECISION",
+    "DESIGN", "RFC", "OVERVIEW", "STRUCTURE",
+]
+DOCS_TOKEN_BUDGET = 3000   # ~2000 слов, часть общего окна
+CHARS_PER_TOKEN = 4        # приближение
+
+def get_docs_context(project_id: int, ref: str = "main") -> str:
+    """
+    Читает docs/ из репо. Приоритизирует архитектурные файлы.
+    Останавливается при достижении бюджета токенов.
+    """
+    # Получаем список файлов в docs/
+    tree_url = f"{GITLAB_URL}/api/v4/projects/{project_id}/repository/tree"
+    resp = httpx.get(tree_url, params={"path": "docs", "ref": ref, "recursive": True},
+                     headers={"PRIVATE-TOKEN": TOKEN})
+
+    if resp.status_code == 404:
+        return ""   # docs/ не существует — тихо пропускаем
+
+    files = [
+        f["path"] for f in resp.json()
+        if f["type"] == "blob" and f["path"].endswith((".md", ".adoc", ".txt"))
+    ]
+
+    # Приоритизация: файлы с ключевыми словами — вперёд
+    def priority(path: str) -> int:
+        name = PurePosixPath(path).stem.upper()
+        for i, pattern in enumerate(PRIORITY_PATTERNS):
+            if pattern in name:
+                return i
+        return len(PRIORITY_PATTERNS)
+
+    files.sort(key=priority)
+
+    # Читаем до исчерпания бюджета
+    budget_chars = DOCS_TOKEN_BUDGET * CHARS_PER_TOKEN
+    parts = []
+    used = 0
+
+    for file_path in files:
+        file_url = (
+            f"{GITLAB_URL}/api/v4/projects/{project_id}"
+            f"/repository/files/{file_path.replace('/', '%2F')}/raw"
+        )
+        content = httpx.get(file_url, params={"ref": ref},
+                            headers={"PRIVATE-TOKEN": TOKEN}).text
+
+        if used + len(content) > budget_chars:
+            # Влезает частично — берём сколько осталось
+            remaining = budget_chars - used
+            if remaining > 200:  # не стоит добавлять обрывок меньше 200 символов
+                parts.append(f"### {file_path} (truncated)\n{content[:remaining]}")
+            break
+
+        parts.append(f"### {file_path}\n{content}")
+        used += len(content)
+
+    if not parts:
+        return ""
+
+    return "## Architecture Decisions (docs/)\n\n" + "\n\n---\n\n".join(parts)
+```
+
+### Итоговая сборка PROJECT_CONTEXT
+
+```python
+def build_project_context(project_id: int, ref: str = "main") -> str:
+    agents_md = get_project_context(project_id, ref)   # AGENTS.md
+    docs = get_docs_context(project_id, ref)           # docs/
+
+    parts = [agents_md]
+    if docs:
+        parts.append(docs)
+
+    return "\n\n---\n\n".join(parts)
+```
+
+### Бюджет токенов (рекомендации для v2)
+
+| Слот | Бюджет | Приоритет |
+|------|--------|-----------|
+| `AGENTS.md` | ~1500 токенов | Обязателен |
+| `docs/` | ~3000 токенов | Приоритизированная выборка |
+| `TASK_CONTEXT` | ~800 токенов | Обязателен для reviewer/tester |
+| `DYNAMIC_CONTEXT` (файлы + тесты) | ~4000 токенов | По возможности |
+| `DIFF` | ~3000 токенов | Обязателен |
+| Промпт + ответ | ~2000 токенов | Резерв |
+| **Итого** | **~14 300** | Влезает в 32K окно |
+
+При использовании модели с 128K окном (например gemma-3-27b через OpenRouter) — бюджеты можно удвоить.
