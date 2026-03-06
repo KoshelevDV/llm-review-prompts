@@ -59,7 +59,7 @@ that will become load-bearing technical debt.
 
 - `[DIFF]` — The git diff to review.
 
-- `[ARCH_DECISIONS]` — Recorded ADRs or architecture decision notes relevant to this change.
+- `[ARCH_DECISIONS]` — **Required.** Contents of `docs/` directory from the project repository: ADRs, architecture decision notes, design documents. If `docs/` exists in the repo, its contents MUST be included here. Without architecture decisions, drift cannot be detected.
 
 ## Instructions
 

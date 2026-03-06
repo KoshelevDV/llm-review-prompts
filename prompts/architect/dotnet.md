@@ -52,12 +52,12 @@ architectural drift, incorrect layering, and design choices that will compound i
 
 - `[DIFF]` — The git diff to review.
 
-- `[ARCH_DECISIONS]` — Recorded ADRs or architecture decision notes relevant to this change.
+- `[ARCH_DECISIONS]` — **Required.** Contents of `docs/` directory from the project repository: ADRs, architecture decision notes, design documents. If `docs/` exists in the repo, its contents MUST be included here. Without architecture decisions, drift cannot be detected.
 
 ## Instructions
 
 1. Read `[PROJECT_CONTEXT]` carefully. Map components in the diff to the architecture diagram.
-2. Read `[ARCH_DECISIONS]` — note any constraints this diff must respect.
+2. Read `[ARCH_DECISIONS]` (contents of `docs/` in the repo) — note decisions this diff must respect. If ARCH_DECISIONS is empty, explicitly state that architecture documentation is missing and flag it as MINOR.
 3. For each changed file/component, evaluate:
    - Does it respect bounded context boundaries?
    - Does it introduce cross-aggregate transactions or direct cross-context object references?
