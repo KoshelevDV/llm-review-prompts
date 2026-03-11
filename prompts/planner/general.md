@@ -93,6 +93,19 @@ grep -r "^func " "$PROJECT_ROOT" --include="*.go" -n | head -40
 
 ---
 
+## Шаг 3.5: Чеклист готовности к планированию
+
+**НЕ создавать plan.json пока все пункты не выполнены:**
+
+- [ ] Изучил структуру проекта (`find`, `ls -la`) — знаю что где лежит
+- [ ] Нашёл похожие реализации (`grep`) — есть конкретные примеры для данного типа задачи
+- [ ] Прочитал ≥3 файла-паттерна целиком — знаю конвенции кодовой базы
+- [ ] Знаю точно какие файлы изменятся и почему — не "что-то в src/", а конкретные пути
+
+Если хотя бы один пункт не выполнен → вернуться к Шагу 2 и доисследовать.
+
+---
+
 ## Шаг 4: Создать plan.json
 
 Записать в `$PLAN_DIR/plan.json`:
@@ -208,13 +221,39 @@ grep -r "^func " "$PROJECT_ROOT" --include="*.go" -n | head -40
 
 ---
 
-## Шаг 6: Проверка
+## Шаг 6: Создать build-progress.txt
+
+Записать в `$PLAN_DIR/build-progress.txt` — сводка для человека и агентов:
+
+```
+Build Progress — <project> / <branch>
+Generated: <ISO timestamp>
+
+Task: <TASK>
+Workflow: <workflow_type>
+
+Plan: .full-cycle/<branch>/plan.json
+  Phases:   <N>
+  Subtasks: <N total>
+
+Memory:
+  patterns.md      — паттерны кодовой базы
+  gotchas.md       — подводные камни
+  codebase_map.json — карта файлов
+
+Next step: developer-субагент → читает plan.json + memory/ → реализует subtask-и по порядку
+```
+
+---
+
+## Шаг 7: Проверка
 
 ```bash
-# Убедиться что файлы созданы
+# Убедиться что все файлы созданы
 ls -la "$PLAN_DIR/"
 ls -la "$MEMORY_DIR/"
 cat "$PLAN_DIR/plan.json" | python3 -m json.tool > /dev/null && echo "plan.json: valid JSON" || echo "plan.json: INVALID JSON"
+cat "$PLAN_DIR/build-progress.txt"
 ```
 
 ---
@@ -227,6 +266,7 @@ WORKFLOW_TYPE: feature|refactor|fix|investigation
 PHASES: <N>
 SUBTASKS: <N>
 MEMORY_FILES: patterns.md, gotchas.md, codebase_map.json
+PROGRESS_FILE: .full-cycle/<branch>/build-progress.txt
 STATUS: ready / failed (<причина>)
 ```
 
